@@ -1,0 +1,2 @@
+import { Inbox } from "lucide-react";
+export function Empty({ title = "Nothing here yet", description = "Records will appear here when they are available." }: { title?: string; description?: string }) { return <div className="rounded-xl border border-dashed bg-card px-6 py-16 text-center"><Inbox className="mx-auto size-8 text-muted-foreground" /><h2 className="mt-4 font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{description}</p></div>; }

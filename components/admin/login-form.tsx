@@ -1,0 +1,8 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/form-controls";
+import { createClient } from "@/lib/supabase/browser";
+export function LoginForm({ configured }: { configured: boolean }) { const router = useRouter(); const [pending, setPending] = useState(false); const [error, setError] = useState(""); async function submit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); setPending(true); setError(""); const form = new FormData(e.currentTarget); const client = createClient(); const result = await client.auth.signInWithPassword({ email: String(form.get("email")), password: String(form.get("password")) }); if (result.error) { setError("Email or password is incorrect, or this account is not authorized."); setPending(false); return; } router.replace("/admin/dashboard"); router.refresh(); } return <form onSubmit={submit} className="mt-8 space-y-5"><div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" required autoComplete="email" className="mt-2" /></div><div><Label htmlFor="password">Password</Label><Input id="password" name="password" type="password" required minLength={8} autoComplete="current-password" className="mt-2" /></div>{!configured && <p className="rounded-xl bg-accent p-4 text-sm">Supabase is not configured yet. Add the values from <code>.env.example</code> to <code>.env.local</code>.</p>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<Button className="w-full" size="lg" disabled={!configured || pending}>{pending && <Loader2 className="animate-spin" />} Sign in securely</Button></form>; }

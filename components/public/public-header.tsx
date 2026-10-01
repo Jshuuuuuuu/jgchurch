@@ -1,0 +1,3 @@
+import Link from "next/link";
+import { Sprout } from "lucide-react";
+export function PublicHeader() { return <header className="border-b bg-background/90"><div className="page-shell flex h-18 items-center justify-between py-4"><Link href="/" className="flex items-center gap-3" aria-label="ARC home"><span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground"><Sprout className="size-5" /></span><span><strong className="block tracking-[.18em]">ARC</strong><span className="hidden text-xs text-muted-foreground sm:block">Affirmation • Recommendation • Correction</span></span></Link><Link href="/admin/login" className="text-sm text-muted-foreground hover:text-foreground">Admin</Link></div></header>; }
