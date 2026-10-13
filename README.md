@@ -1,6 +1,6 @@
-# ARC — Church Feedback, Prayer Care & Membership
+# Jesus Generation Church — Feedback, Prayer Care & Membership
 
-ARC is a production-oriented Next.js application for anonymous church reflections, consent-aware prayer requests, member administration, event QR codes, and role-restricted operations.
+The Jesus Generation Church website is a production-oriented Next.js application for anonymous church reflections, consent-aware prayer requests, member administration, event QR codes, and role-restricted operations.
 
 ## Included
 
@@ -19,8 +19,8 @@ ARC is a production-oriented Next.js application for anonymous church reflection
 Requirements: Node.js 20 or 22 LTS, npm, a Supabase project, and optionally the Supabase CLI.
 
 1. Install dependencies: `npm install`.
-2. Copy `.env.example` to `.env.local` and fill in the Supabase project URL and publishable/anon key. Keep `SUPABASE_SERVICE_ROLE_KEY` server-only; it is needed for administrator invitations, not normal public use.
-3. Apply [the migration](supabase/migrations/001_initial_schema.sql) with `supabase link --project-ref YOUR_PROJECT_REF` followed by `supabase db push`. The same SQL can be run once in the Supabase SQL Editor.
+2. Copy `.env.example` to `.env.local` and fill in the Supabase project URL and publishable/anon key. Keep `SUPABASE_SERVICE_ROLE_KEY` server-only; it is required for public submissions and administrator invitations after migration 004.
+3. Apply all migrations in numeric order (001 through 004) with `supabase link --project-ref YOUR_PROJECT_REF` followed by `supabase db push`. The same SQL can be run once in the Supabase SQL Editor, one migration at a time. Do not rerun already-applied migrations.
 4. In Supabase Authentication, create the first user. Bootstrap only that user as Super Admin in the SQL Editor:
 
    ```sql
@@ -36,7 +36,11 @@ Requirements: Node.js 20 or 22 LTS, npm, a Supabase project, and optionally the 
 
 Anonymous ARC rows intentionally contain no name, email, member, account, or IP fields. Public clients cannot insert directly; narrowly scoped database functions validate inputs and event tokens. Prayer content has stricter RLS than aggregate analytics. Rate limiting uses a random HttpOnly browser-session identifier that is SHA-256 hashed before storage, not an IP address.
 
-Cloudflare Turnstile is optional locally. For production, set both Turnstile variables. Access/QR tokens reduce casual misuse but cannot guarantee anonymity or eliminate all spam. Choose documented retention periods and schedule `apply_retention` only after reviewing pastoral, legal, and Philippine Data Privacy Act obligations. Obtain local privacy/legal review before production.
+Cloudflare Turnstile is optional locally. Production requires both Turnstile variables, the canonical NEXT_PUBLIC_APP_URL, and a server-only Supabase credential. See [submission security setup](docs/submission-security-setup.md). Access/QR tokens reduce casual misuse but cannot guarantee anonymity or eliminate all spam. Choose documented retention periods and schedule `apply_retention` only after reviewing pastoral, legal, and Philippine Data Privacy Act obligations. Obtain local privacy/legal review before production.
+
+## Sunday controls and attendance
+
+See [the deployment checklist](docs/submission-security-setup.md) before deploying migration 004. It adds server-only submissions, Sunday-only ARC in Philippine time, week-round QR-required prayer, and an admin-only Sunday attendance sheet. Environment setup, live migration, Turnstile, and Vercel firewall configuration are separate deployment steps.
 
 ## Verification
 
@@ -48,11 +52,11 @@ In **Events**, choose the event type before creating its QR. Midweek and Extracu
 
 Registration means “I'm coming / I want to join,” not an arrival check-in. Midweek contact is optional (even for pickup); Extracurricular contact is required for logistics. A participant consents to organizer use of their details; group-chat invitations are manual, not a Messenger integration. Only active Super Admin and Ministry Leader accounts can read attendee lists, via **Events → event details**. Prayer content remains Super Admin-only. Registrations neither create members nor change ARC/prayer dashboard counts.
 
-Use **Open participant link** to test without scanning on another device. Retry of the same form uses an idempotency key; a fresh form can create another registration. No public attendee directory is exposed. The registration API uses the existing timing/honeypot, optional Turnstile, and session rate-limit protections. These API checks do not prevent clients calling the public database registration RPC directly; assess production abuse controls before public launch. Attendance retention is not included in the existing ARC/prayer retention helper.
+Use **Open participant link** to test without scanning on another device. Retry of the same form uses an idempotency key; a fresh form can create another registration. No public attendee directory is exposed. The registration API uses the existing timing/honeypot, optional Turnstile, and session rate-limit protections. Migration 004 restricts registration writes to the server so clients cannot bypass the API checks through a direct public RPC call. Attendance retention is not included in the existing ARC/prayer retention helper.
 
 Manual checks after applying 003:
 
-1. Existing Sunday QR still opens ARC + Prayer; non-event anonymous submissions still work.
+1. Existing Sunday QR still opens ARC + Prayer. After migration 004, ARC submits on Sundays only; both ARC and prayer require an active QR link.
 2. Midweek QR shows location/schedule first. Register with own transportation, then another test name with pickup and no contact. Confirm the 6 PM pickup notice and both rows in event details.
 3. Extracurricular QR shows date/location/duration. Missing contact or consent blocks submission. A valid registration displays the manual group-chat confirmation and appears in event details.
 4. Inactive/expired QR links do not offer registration. A repeated request with the same request key creates only one row.

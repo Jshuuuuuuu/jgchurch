@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { registrationSchema, registrationProblem } from "@/lib/events";
 import { getPublicEvent } from "@/lib/event-server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { readSubmissionJson } from "@/lib/submission-body";
 import { rateLimit, verifyHuman } from "@/lib/security";
 
 export async function POST(request: Request) {
   let input: unknown;
-  try { input = await request.json(); } catch {
+  try { input = await readSubmissionJson(request); } catch {
     return NextResponse.json({ error: "Invalid registration data." }, { status: 400 });
   }
   const parsed = registrationSchema.safeParse(input);
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     if (!event) return NextResponse.json({ error: "This event link is inactive or expired. Ask the organizer for a current link." }, { status: 400 });
     const problem = registrationProblem(event.event_type, value);
     if (problem) return NextResponse.json({ error: problem }, { status: 400 });
-    const db = await createClient();
+    const db = createAdminClient();
     const { error } = await db.rpc("register_for_event", {
       p_token: value.eventToken, p_request_key: value.requestKey,
       p_name: value.name, p_contact: value.contact || null,

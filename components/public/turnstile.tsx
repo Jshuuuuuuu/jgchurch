@@ -10,12 +10,13 @@ declare global {
   }
 }
 
-export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (token: string) => void }) {
+export function Turnstile({ siteKey, onToken, resetKey = 0 }: { siteKey: string; onToken: (token: string) => void; resetKey?: number }) {
   const container = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!siteKey) return;
+    onToken("");
     let cancelled = false;
     const render = () => {
       if (!cancelled && window.turnstile && container.current && !widgetId.current) {
@@ -44,7 +45,7 @@ export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (tok
       if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
       widgetId.current = null;
     };
-  }, [siteKey, onToken]);
+  }, [siteKey, onToken, resetKey]);
 
   if (!siteKey) return null;
   return <div ref={container} className="min-h-[65px]" aria-label="Bot protection challenge" />;
