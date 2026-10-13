@@ -10,6 +10,7 @@ ARC is a production-oriented Next.js application for anonymous church reflection
 - Live dashboard counts and Recharts trends; ARC and prayer work queues; notes, statuses, audit events, filters, and CSV export
 - Member directory with member numbers, search, status filters, multiple ministries, edit, and archive
 - Event-specific expiring QR tokens and downloadable PNG files
+- Sunday Service ARC + Prayer, Midweek Prayer advance registration with transport choice, and Extracurricular registration with logistics contact
 - PostgreSQL schema, indexes, constraints, RPCs, row-level security, rate limiting, and retention helper
 - Zod validation, honeypot/timing bot checks, optional Cloudflare Turnstile, secure headers, and no application-controlled IP logging
 
@@ -38,6 +39,26 @@ Anonymous ARC rows intentionally contain no name, email, member, account, or IP 
 Cloudflare Turnstile is optional locally. For production, set both Turnstile variables. Access/QR tokens reduce casual misuse but cannot guarantee anonymity or eliminate all spam. Choose documented retention periods and schedule `apply_retention` only after reviewing pastoral, legal, and Philippine Data Privacy Act obligations. Obtain local privacy/legal review before production.
 
 ## Verification
+
+### Event registration upgrade
+
+Apply migrations in order: `001_initial_schema.sql`, `002_super_admin_prayer_access.sql`, then `003_event_registration.sql`. For an existing installation that already applied 001/002, run **only 003** in Supabase SQL Editor. This upgrade preserves existing events as Sunday Service and leaves all feedback/prayer/member records intact. New code needs migration 003 before event links and the event manager work.
+
+In **Events**, choose the event type before creating its QR. Midweek and Extracurricular events require location and start date/time; Extracurricular also requires an end for duration. All event times are interpreted as Philippine time, independently of the hosting timezone. QR expiry is separate from event end. Midweek pickup is fixed at **6 PM on the event date**, not the prayer start; exceptions and pickup locations are coordinated personally.
+
+Registration means “I'm coming / I want to join,” not an arrival check-in. Midweek contact is optional (even for pickup); Extracurricular contact is required for logistics. A participant consents to organizer use of their details; group-chat invitations are manual, not a Messenger integration. Only active Super Admin and Ministry Leader accounts can read attendee lists, via **Events → event details**. Prayer content remains Super Admin-only. Registrations neither create members nor change ARC/prayer dashboard counts.
+
+Use **Open participant link** to test without scanning on another device. Retry of the same form uses an idempotency key; a fresh form can create another registration. No public attendee directory is exposed. The registration API uses the existing timing/honeypot, optional Turnstile, and session rate-limit protections. These API checks do not prevent clients calling the public database registration RPC directly; assess production abuse controls before public launch. Attendance retention is not included in the existing ARC/prayer retention helper.
+
+Manual checks after applying 003:
+
+1. Existing Sunday QR still opens ARC + Prayer; non-event anonymous submissions still work.
+2. Midweek QR shows location/schedule first. Register with own transportation, then another test name with pickup and no contact. Confirm the 6 PM pickup notice and both rows in event details.
+3. Extracurricular QR shows date/location/duration. Missing contact or consent blocks submission. A valid registration displays the manual group-chat confirmation and appears in event details.
+4. Inactive/expired QR links do not offer registration. A repeated request with the same request key creates only one row.
+5. Signed-out users, Prayer Team, and Membership Admin cannot read attendance details. Super Admin and Ministry Leader can. Test both the UI and database RLS against disposable test records.
+
+For repeatable database checks, `tests/events.integration.sql` bootstraps mock auth roles and applies all migrations to an **empty, disposable local PostgreSQL database**. Run with `psql -v ON_ERROR_STOP=1 -d YOUR_EMPTY_TEST_DATABASE -f tests/events.integration.sql`. Never run this test fixture in Supabase or a database containing real data. It checks role restrictions, expired/inactive links, consent, event-type validation, idempotent registration, and preservation of Sunday ARC/prayer behavior.
 
 ```bash
 npm run typecheck

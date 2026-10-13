@@ -1,8 +1,37 @@
-import { createEvent } from "@/app/admin/actions";
+import Link from "next/link";
 import { PageHeading } from "@/components/admin/page-heading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Label } from "@/components/ui/form-controls";
-import { Button } from "@/components/ui/button";
+import { EventForm } from "@/components/admin/event-form";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth";
+import { EVENT_LABELS, type EventType } from "@/lib/events";
 import { formatDate } from "@/lib/utils";
-export default async function Events() { const db = await createClient(); const { data = [] } = await db.from("events").select("id,name,starts_at,ends_at,active,arc_submissions(count),prayer_requests(count)").order("created_at", { ascending: false }); return <><PageHeading eyebrow="Participation" title="Events" description="Create event-specific access links and track associated submissions." /><div className="grid gap-6 xl:grid-cols-[360px_1fr]"><Card><CardHeader><CardTitle>New event</CardTitle></CardHeader><CardContent><form action={createEvent} className="space-y-4"><div><Label>Name</Label><Input name="name" required className="mt-2" /></div><div><Label>Starts</Label><Input name="startsAt" type="datetime-local" className="mt-2" /></div><div><Label>QR expires</Label><Input name="expiresAt" type="datetime-local" className="mt-2" /></div><Button>Create event & QR</Button></form></CardContent></Card><div className="space-y-3">{(data ?? []).map((event: any) => <Card key={event.id}><CardContent className="flex flex-wrap items-center gap-4 p-5"><div><strong>{event.name}</strong><p className="mt-1 text-xs text-muted-foreground">{event.starts_at ? formatDate(event.starts_at) : "Date not set"}</p></div><p className="ml-auto text-sm">{event.arc_submissions?.[0]?.count ?? 0} ARC · {event.prayer_requests?.[0]?.count ?? 0} prayers</p></CardContent></Card>)}</div></div></>; }
+
+interface EventRow {
+  id: string; name: string; event_type: EventType; location: string | null; starts_at: string | null;
+  arc_submissions: { count: number }[]; prayer_requests: { count: number }[];
+  event_registrations: { count: number }[];
+}
+
+export default async function Events() {
+  const admin = await requireAdmin(["super_admin", "ministry_leader"]);
+  const db = await createClient();
+  const { data, error } = await db.from("events").select("id,name,event_type,location,starts_at,arc_submissions(count),prayer_requests(count),event_registrations(count)").order("created_at", { ascending: false });
+  return <>
+    <PageHeading eyebrow="Participation" title="Events" description="Choose a QR flow: Sunday Service feedback, Midweek Prayer registration, or Extracurricular registration." />
+    {error ? <p role="alert" className="rounded-xl border p-5">Events could not be loaded. Apply migration 003 in Supabase if you have not done so, then refresh.</p> :
+      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+        <Card><CardHeader><CardTitle>New event</CardTitle></CardHeader><CardContent><EventForm /></CardContent></Card>
+        <div className="space-y-3">{((data as unknown as EventRow[]) ?? []).map((event) => <Card key={event.id}><CardContent className="space-y-3 p-5">
+          <Link className="font-semibold underline" href={`/admin/events/${event.id}`}>{event.name}</Link>
+          <p className="text-sm">{EVENT_LABELS[event.event_type]}</p>
+          {event.location && <p className="text-sm">{event.location}</p>}
+          <p className="text-xs text-muted-foreground">{event.starts_at ? `${formatDate(event.starts_at)} (Philippine time)` : "Date not set"}</p>
+          <p className="text-sm">{event.event_type === "sunday_service"
+            ? `${event.arc_submissions?.[0]?.count ?? 0} ARC${admin.role === "super_admin" ? ` · ${event.prayer_requests?.[0]?.count ?? 0} prayers` : ""}`
+            : `${event.event_registrations?.[0]?.count ?? 0} registrations`}</p>
+          <Link href={`/admin/events/${event.id}`} className="text-sm font-semibold text-primary underline">Event details &amp; QR link</Link>
+        </CardContent></Card>)}{!data?.length && <p className="text-sm text-muted-foreground">No events yet.</p>}</div>
+      </div>}
+  </>;
+}
