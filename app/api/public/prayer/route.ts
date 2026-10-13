@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   try {
     if (!await verifyHuman(value.startedAt, value.website, value.turnstileToken)) return NextResponse.json({ error: "Please complete bot verification and wait a moment before submitting." }, { status: 400 });
     if (!await rateLimit("prayer")) return NextResponse.json({ error: "Too many submissions. Please try again later." }, { status: 429 });
-    const denied = await submissionAccess("prayer", value.eventToken);
+    const denied = await submissionAccess(value.eventToken);
     if (denied) return NextResponse.json({ error: denied }, { status: 403 });
     const db = createAdminClient();
     const { error } = await db.rpc("submit_prayer_request", {

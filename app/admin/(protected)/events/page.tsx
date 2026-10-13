@@ -1,3 +1,4 @@
+import { RecordControl } from "@/components/admin/record-control";
 import Link from "next/link";
 import { PageHeading } from "@/components/admin/page-heading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { EVENT_LABELS, type EventType } from "@/lib/events";
 import { formatDate } from "@/lib/utils";
 
 interface EventRow {
-  id: string; name: string; event_type: EventType; location: string | null; starts_at: string | null;
+  id: string; active: boolean; name: string; event_type: EventType; location: string | null; starts_at: string | null;
   arc_submissions: { count: number }[]; prayer_requests: { count: number }[];
   event_registrations: { count: number }[];
 }
@@ -16,7 +17,7 @@ interface EventRow {
 export default async function Events() {
   const admin = await requireAdmin(["super_admin", "ministry_leader"]);
   const db = await createClient();
-  const { data, error } = await db.from("events").select("id,name,event_type,location,starts_at,arc_submissions(count),prayer_requests(count),event_registrations(count)").order("created_at", { ascending: false });
+  const { data, error } = await db.from("events").select("id,active,name,event_type,location,starts_at,arc_submissions(count),prayer_requests(count),event_registrations(count)").is("deleted_at", null).order("created_at", { ascending: false });
   return <>
     <PageHeading eyebrow="Participation" title="Events" description="Choose a QR flow: Sunday Service feedback, Midweek Prayer registration, or Extracurricular registration." />
     {error ? <p role="alert" className="rounded-xl border p-5">Events could not be loaded. Apply migration 003 in Supabase if you have not done so, then refresh.</p> :
@@ -30,6 +31,7 @@ export default async function Events() {
           <p className="text-sm">{event.event_type === "sunday_service"
             ? `${event.arc_submissions?.[0]?.count ?? 0} ARC${admin.role === "super_admin" ? ` · ${event.prayer_requests?.[0]?.count ?? 0} prayers` : ""}`
             : `${event.event_registrations?.[0]?.count ?? 0} registrations`}</p>
+          <p className="text-sm">{event.active ? "Active" : "Inactive"}</p><RecordControl key={String(event.active)} kind="event" id={event.id} operation={event.active ? "deactivate" : "activate"} />{admin.role === "super_admin" && <RecordControl kind="event" id={event.id} />}
           <Link href={`/admin/events/${event.id}`} className="text-sm font-semibold text-primary underline">Event details &amp; QR link</Link>
         </CardContent></Card>)}{!data?.length && <p className="text-sm text-muted-foreground">No events yet.</p>}</div>
       </div>}

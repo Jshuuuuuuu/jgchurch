@@ -12,10 +12,10 @@ export default async function EventDetails({ params }: { params: Promise<{ id: s
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
   const db = await createClient();
-  const { data: event, error } = await db.from("events").select("id,name,event_type,location,starts_at,ends_at,active").eq("id", id).maybeSingle();
+  const { data: event, error } = await db.from("events").select("id,name,event_type,location,starts_at,ends_at,active").eq("id", id).is("deleted_at", null).maybeSingle();
   if (error) return <p role="alert">Event details could not be loaded. Check that migration 003 has been applied.</p>;
   if (!event) notFound();
-  const { data: tokens, error: tokenError } = await db.from("qr_tokens").select("id,token,active,expires_at").eq("event_id", id).order("created_at", { ascending: false });
+  const { data: tokens, error: tokenError } = await db.from("qr_tokens").select("id,token,active,expires_at").eq("event_id", id).is("deleted_at", null).order("created_at", { ascending: false });
   const registrationEvent = event.event_type !== "sunday_service";
   const registrations = registrationEvent ? await db.from("event_registrations")
     .select("id,name,contact,transport,created_at", { count: "exact" }).eq("event_id", id).order("created_at", { ascending: false }).limit(500) : null;

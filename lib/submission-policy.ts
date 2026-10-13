@@ -19,5 +19,4 @@ export function validAttendanceDate(value: string, now = new Date()) {
     && date.getUTCDay() === 0 && value <= philippineDate(now);
 }
 
-export const SUNDAY_CLOSED_MESSAGE = "ARC reflections are open all Sunday, from midnight to midnight Philippine time. Please return on Sunday with an active church QR link.";
-export const QR_REQUIRED_MESSAGE = "Please scan an active Sunday Service QR code or use the link shared by the church. Prayer requests remain available throughout the week while the link is active.";
+export const QR_REQUIRED_MESSAGE = "Please scan an active Sunday Service QR code or use the link shared by the church. ARC reflections and prayer requests are available any day while the event and link are active and the link has not expired.";

@@ -20,7 +20,7 @@ Requirements: Node.js 20 or 22 LTS, npm, a Supabase project, and optionally the 
 
 1. Install dependencies: `npm install`.
 2. Copy `.env.example` to `.env.local` and fill in the Supabase project URL and publishable/anon key. Keep `SUPABASE_SERVICE_ROLE_KEY` server-only; it is required for public submissions and administrator invitations after migration 004.
-3. Apply all migrations in numeric order (001 through 004) with `supabase link --project-ref YOUR_PROJECT_REF` followed by `supabase db push`. The same SQL can be run once in the Supabase SQL Editor, one migration at a time. Do not rerun already-applied migrations.
+3. Apply all migrations in numeric order (001 through 005) with `supabase link --project-ref YOUR_PROJECT_REF` followed by `supabase db push`. The same SQL can be run once in the Supabase SQL Editor, one migration at a time. Do not rerun already-applied migrations.
 4. In Supabase Authentication, create the first user. Bootstrap only that user as Super Admin in the SQL Editor:
 
    ```sql
@@ -40,7 +40,7 @@ Cloudflare Turnstile is optional locally. Production requires both Turnstile var
 
 ## Sunday controls and attendance
 
-See [the deployment checklist](docs/submission-security-setup.md) before deploying migration 004. It adds server-only submissions, Sunday-only ARC in Philippine time, week-round QR-required prayer, and an admin-only Sunday attendance sheet. Environment setup, live migration, Turnstile, and Vercel firewall configuration are separate deployment steps.
+See [the deployment checklist](docs/submission-security-setup.md) before deploying migration 004. It adds server-only submissions, QR-required ARC and prayer (any day after migration 005), and an admin-only Sunday attendance sheet. Environment setup, live migration, Turnstile, and Vercel firewall configuration are separate deployment steps.
 
 ## Verification
 
@@ -56,7 +56,7 @@ Use **Open participant link** to test without scanning on another device. Retry 
 
 Manual checks after applying 003:
 
-1. Existing Sunday QR still opens ARC + Prayer. After migration 004, ARC submits on Sundays only; both ARC and prayer require an active QR link.
+1. Existing Sunday QR still opens ARC + Prayer. After migration 005, ARC and prayer accept submissions any day through an active, unexpired Sunday Service QR link.
 2. Midweek QR shows location/schedule first. Register with own transportation, then another test name with pickup and no contact. Confirm the 6 PM pickup notice and both rows in event details.
 3. Extracurricular QR shows date/location/duration. Missing contact or consent blocks submission. A valid registration displays the manual group-chat confirmation and appears in event details.
 4. Inactive/expired QR links do not offer registration. A repeated request with the same request key creates only one row.
@@ -82,3 +82,15 @@ Tests cover all seven ARC combinations, consent validation, anonymous schema inv
 5. Smoke-test an event QR, an anonymous ARC submission, each prayer visibility, every role, CSV downloads, and archive operations.
 
 No successful external database connection is claimed by this repository alone. Until valid Supabase credentials and the migration are present, public submission endpoints return a service-unavailable response and admin login shows a setup notice.
+
+## Active links and recoverable Trash (migration 005)
+
+Apply `005_active_qr_trash.sql` once after 004, then deploy the matching application code. No environment changes are needed. Do not rerun 004. Until 005 is applied, the old database Sunday rule still applies and the new Events/QR/Trash screens may be unavailable.
+
+Super Admin can move events, QR codes, members, individual ARC entries, and prayer requests to Trash and restore them from **Trash**. Related records are preserved. Trashing an event blocks all its links without trashing its registrations, feedback, or prayers. Restored events/QR codes stay inactive: activate them deliberately in Events/QR Codes. Existing QR expiration still applies. Other roles cannot use Trash; authorized Ministry Leaders can activate/deactivate non-trashed events and QR codes.
+
+Trashed feedback/prayers are hidden from their working lists, but historical submission totals still include retained records. Pending reviews and the active member count exclude archived records. Existing explicit database retention procedures can still permanently remove aged feedback/prayers if an administrator runs or schedules them; Trash is not a backup and does not override retention. No new retention job or automatic purge is introduced.
+
+Members now show all assigned ministries, with ministry/status filters, result counts, Reset, and 50-row pagination. Navigation highlights the current section, uses subtle transitions, and respects reduced-motion preferences.
+
+Test the upgrade with fictional data: submit through an active QR on a weekday; deactivate it and confirm rejection; trash/restore each record type; confirm attendance and member ministries survive restore; confirm a non-Super-Admin cannot use Trash; filter a member assigned to multiple ministries and verify all their ministries remain displayed. Local database regression: `tests/trash.integration.sql` is for an empty disposable database only, never Supabase.

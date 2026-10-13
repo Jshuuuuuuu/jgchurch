@@ -17,7 +17,7 @@ Development can omit both Turnstile keys; the server credential is still require
 
 Configure credentials and deploy matching code in a planned maintenance window, then apply 004. Until both code and database are updated, submissions may be unavailable; fail-closed behavior is intentional. Do not advertise forms until testing is complete. No external settings or migrations are applied by the code edits alone.
 
-- ARC: every Sunday from 00:00 inclusive to Monday 00:00 exclusive, Asia/Manila. Both API and database enforce this. An active, unexpired Sunday Service QR token is mandatory. No administrator bypass is provided.
+- ARC after migration 005: any day with an active, unexpired Sunday Service QR token and an active event. The Sunday-only restriction in 004 is replaced, not edited. Bot checks and server-only writes remain.
 - Prayer: any day with an active Sunday Service QR token shared by the church. Keep the token active with a suitable expiry if sharing it all week. Super Admin-only content visibility is unchanged.
 - Midweek/Extracurricular registration: remains tied to active event QR links, with no Sunday restriction. Its database write RPC is server-only too.
 - Anonymous/signed-in browser roles cannot execute public submission or rate-limit functions directly. Implementation functions are moved to a non-public schema and their browser privileges revoked. The application server validates request size, form data, schedule, QR, bot proof and per-session rate limits before invoking write functions.
@@ -34,3 +34,15 @@ Public read-only Supabase metadata endpoints remain accessible; Vercel cannot pr
 Open **Sunday Attendance** as an active Super Admin or Membership Admin. The page includes every non-archived member, including inactive/visitor statuses, in pages of 100. Choose a past/current Sunday (defaults to the latest local Sunday). Each member starts as **Not recorded**; tick Present and save, or save unchecked to explicitly record **Absent**. Edits are audited and upsert one record per member/date. Other roles and signed-out visitors cannot read/write attendance. Future attendance cannot be recorded.
 
 This is actual attendance entered by staff, distinct from event intentions (“I'm coming”). It is not linked to ARC feedback, prayer requests, or public submissions. Historical sheets use the current member directory; archived members are excluded, though their attendance records remain in the database until member deletion. This release does not implement a historical membership snapshot, automated check-in, or attendance retention policy.
+
+## Active links and recoverable Trash (migration 005)
+
+Apply `005_active_qr_trash.sql` once after 004, then deploy the matching application code. No environment changes are needed. Do not rerun 004. Until 005 is applied, the old database Sunday rule still applies and the new Events/QR/Trash screens may be unavailable.
+
+Super Admin can move events, QR codes, members, individual ARC entries, and prayer requests to Trash and restore them from **Trash**. Related records are preserved. Trashing an event blocks all its links without trashing its registrations, feedback, or prayers. Restored events/QR codes stay inactive: activate them deliberately in Events/QR Codes. Existing QR expiration still applies. Other roles cannot use Trash; authorized Ministry Leaders can activate/deactivate non-trashed events and QR codes.
+
+Trashed feedback/prayers are hidden from their working lists, but historical submission totals still include retained records. Pending reviews and the active member count exclude archived records. Existing explicit database retention procedures can still permanently remove aged feedback/prayers if an administrator runs or schedules them; Trash is not a backup and does not override retention. No new retention job or automatic purge is introduced.
+
+Members now show all assigned ministries, with ministry/status filters, result counts, Reset, and 50-row pagination. Navigation highlights the current section, uses subtle transitions, and respects reduced-motion preferences.
+
+Test the upgrade with fictional data: submit through an active QR on a weekday; deactivate it and confirm rejection; trash/restore each record type; confirm attendance and member ministries survive restore; confirm a non-Super-Admin cannot use Trash; filter a member assigned to multiple ministries and verify all their ministries remain displayed. Local database regression: `tests/trash.integration.sql` is for an empty disposable database only, never Supabase.
