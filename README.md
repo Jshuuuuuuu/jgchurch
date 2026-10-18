@@ -1,5 +1,7 @@
 # Jesus Generation Church — Feedback, Prayer Care & Membership
 
+Latest upgrade: [Permanent deletion from Trash](docs/permanent-delete.md) requires migration `006_permanent_delete.sql` after 005. Only Super Admin can use it, with typed confirmation. Installing the migration does not delete records.
+
 The Jesus Generation Church website is a production-oriented Next.js application for anonymous church reflections, consent-aware prayer requests, member administration, event QR codes, and role-restricted operations.
 
 ## Included

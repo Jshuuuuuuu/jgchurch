@@ -4,6 +4,25 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+export async function permanentlyDeleteRecord(_state: { error: string }, form: FormData) {
+  await requireAdmin(["super_admin"]);
+  const parsed = z.object({
+    id: z.string().uuid(), kind: z.enum(["event", "qr", "member", "arc", "prayer"]),
+    confirmation: z.literal("DELETE"),
+  }).safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { error: "Type DELETE exactly to confirm this record’s permanent deletion." };
+  try {
+    const db = await createClient();
+    const { error } = await db.rpc("permanently_delete_record", {
+      p_kind: parsed.data.kind, p_id: parsed.data.id, p_confirmation: parsed.data.confirmation,
+    });
+    if (error) return { error: "Deletion not completed. The record must still be in Trash and migration 006 must be applied. Refresh before trying again." };
+    revalidatePath("/admin", "layout");
+    revalidatePath("/", "layout");
+    return { error: "" };
+  } catch { return { error: "Unable to confirm deletion. Refresh Trash to check whether the record still exists before retrying." }; }
+}
+
 export async function changeRecord(_state: { error: string; success?: string }, form: FormData) {
   const parsed = z.object({
     id: z.string().uuid(), kind: z.enum(["event", "qr", "member", "arc", "prayer"]),
