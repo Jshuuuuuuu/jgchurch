@@ -19,7 +19,7 @@ export default async function EventRegistration({ params }: { params: Promise<{ 
       <h1 className="text-2xl font-semibold">{unavailable ? "Event information is unavailable" : "This event link is inactive or expired"}</h1>
       <p className="mt-3">{unavailable ? "Please try again later or contact the organizer." : "Ask the organizer for a current QR code. No registration has been saved."}</p>
     </section> : <>
-      <section className="mb-8 space-y-3">
+      <section className="public-intro mb-8 space-y-3">
         <p className="eyebrow">{EVENT_LABELS[event.event_type]}</p>
         <h1 className="font-serif text-4xl font-semibold">{event.name}</h1>
         {event.location && <p className="text-lg"><strong>Location:</strong> {event.location}</p>}
