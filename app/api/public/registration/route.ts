@@ -1,9 +1,10 @@
+import { TURNSTILE_ACTIONS } from "@/lib/turnstile-config";
 import { NextResponse } from "next/server";
 import { registrationSchema, registrationProblem } from "@/lib/events";
 import { getPublicEvent } from "@/lib/event-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readSubmissionJson } from "@/lib/submission-body";
-import { rateLimit, verifyHuman } from "@/lib/security";
+import { rateLimit, verifyHumanDetailed } from "@/lib/security";
 
 export async function POST(request: Request) {
   let input: unknown;
@@ -14,9 +15,8 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid registration" }, { status: 400 });
   const value = parsed.data;
   try {
-    if (!await verifyHuman(value.startedAt, value.website, value.turnstileToken)) {
-      return NextResponse.json({ error: "Please wait a moment and complete bot verification if shown." }, { status: 400 });
-    }
+    const human = await verifyHumanDetailed(value.startedAt, value.website, value.turnstileToken, TURNSTILE_ACTIONS.registration);
+    if (!human.ok) return NextResponse.json({ error: human.error, reason: human.reason }, { status: human.status });
     if (!await rateLimit("registration")) return NextResponse.json({ error: "Too many registration attempts. Please try again later." }, { status: 429 });
     const event = await getPublicEvent(value.eventToken);
     if (!event) return NextResponse.json({ error: "This event link is inactive or expired. Ask the organizer for a current link." }, { status: 400 });

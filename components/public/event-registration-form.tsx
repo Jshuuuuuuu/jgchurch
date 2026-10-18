@@ -1,4 +1,5 @@
 "use client";
+import { TURNSTILE_ACTIONS } from "@/lib/turnstile-config";
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,7 @@ export function EventRegistrationForm({ token, eventType, siteKey }: {
     <label className="flex items-start gap-3 text-sm"><input name="consent" type="checkbox" required className="mt-1" />
       <span>I agree that authorized event organizers (Super Admin and Ministry Leader accounts) may use my name and any contact details I provide to coordinate this event{!midweek && " and invite me to its logistics group chat, where my profile/contact details may be visible to other participants"}. My registration is not anonymous and is stored separately from ARC feedback.</span>
     </label>
-    <Turnstile siteKey={siteKey} onToken={setTurnstileToken} resetKey={captchaAttempt} />
+    <Turnstile action={TURNSTILE_ACTIONS.registration} siteKey={siteKey} onToken={setTurnstileToken} resetKey={captchaAttempt} />
     {siteKey && !turnstileToken && <p className="text-sm text-muted-foreground">Complete the bot verification to enable registration.</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <Button type="submit" disabled={pending || Boolean(siteKey && !turnstileToken)}>{pending ? "Saving…" : "Confirm registration"}</Button>

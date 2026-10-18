@@ -39,8 +39,9 @@ export function checkSubmissionTiming(startedAt: number, honeypot: string, now =
 }
 
 export function checkSiteverifyResult(
-  result: { success?: boolean; hostname?: string; "error-codes"?: string[] },
+  result: { success?: boolean; hostname?: string; action?: string; "error-codes"?: string[] },
   expectedHostname: string | null,
+  expectedAction?: string,
 ): HumanVerificationResult {
   if (result.success !== true) {
     const codes = result["error-codes"] ?? [];
@@ -49,5 +50,6 @@ export function checkSiteverifyResult(
     return verificationFailure("challenge_rejected");
   }
   if (expectedHostname && result.hostname !== expectedHostname) return verificationFailure("hostname_mismatch");
+  if (expectedAction && result.action !== expectedAction) return verificationFailure("challenge_rejected");
   return { ok: true };
 }

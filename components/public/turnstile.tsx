@@ -6,6 +6,7 @@ declare global {
     turnstile?: {
       render: (element: HTMLElement, options: {
         sitekey: string;
+        action: string;
         callback: (token: string) => void;
         "expired-callback": () => void;
         "error-callback": () => void;
@@ -16,8 +17,9 @@ declare global {
   }
 }
 
-export function Turnstile({ siteKey, onToken, resetKey = 0 }: {
+export function Turnstile({ siteKey, action, onToken, resetKey = 0 }: {
   siteKey: string;
+  action: string;
   onToken: (token: string) => void;
   resetKey?: number;
 }) {
@@ -33,6 +35,7 @@ export function Turnstile({ siteKey, onToken, resetKey = 0 }: {
       if (!cancelled && window.turnstile && container.current && !widgetId.current) {
         widgetId.current = window.turnstile.render(container.current, {
           sitekey: siteKey,
+          action,
           callback: (token) => { if (!cancelled) onToken(token); },
           "expired-callback": () => { if (!cancelled) onToken(""); },
           "error-callback": () => { if (!cancelled) onToken(""); },
@@ -60,7 +63,7 @@ export function Turnstile({ siteKey, onToken, resetKey = 0 }: {
       if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
       widgetId.current = null;
     };
-  }, [siteKey, onToken, resetKey]);
+  }, [siteKey, action, onToken, resetKey]);
 
   if (!siteKey) return null;
   return <div ref={container} className="min-h-[65px]" aria-label="Bot protection challenge" />;
