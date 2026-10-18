@@ -1,3 +1,4 @@
+import { TURNSTILE_SITE_KEY } from "@/lib/turnstile-config";
 import Link from "next/link";
 import { PublicHeader } from "@/components/public/public-header";
 import { EventRegistrationForm } from "@/components/public/event-registration-form";
@@ -30,7 +31,7 @@ export default async function EventRegistration({ params }: { params: Promise<{ 
       </section>
       {event.event_type === "sunday_service"
         ? <div className="flex flex-wrap gap-5"><Link className="font-semibold text-primary underline" href={`/arc?token=${encodeURIComponent(token)}`}>ARC Reflection</Link><Link className="font-semibold text-primary underline" href={`/prayer?token=${encodeURIComponent(token)}`}>Prayer Request</Link></div>
-        : <EventRegistrationForm token={token} eventType={event.event_type} siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? ""} />}
+        : <EventRegistrationForm token={token} eventType={event.event_type} siteKey={TURNSTILE_SITE_KEY} />}
     </>}
   </main></>;
 }
