@@ -9,9 +9,9 @@ Enter values directly in `.env.local` for development and Vercel Project Setting
 - `SUPABASE_SERVICE_ROLE_KEY`: server-only Supabase secret/service-role credential for this project. The variable retains its existing name. Used only by the cookie-free server client; never prefix it with `NEXT_PUBLIC_`. It is now required for all public submissions, not just invitations. Do not replace the browser's publishable key with this secret.
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`: retain the existing project URL and publishable key.
 - `NEXT_PUBLIC_APP_URL`: the canonical production HTTPS origin, not localhost or a temporary preview URL.
-- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: configure a Cloudflare Turnstile widget for the canonical website hostname. The site key is public; the secret must remain server-only. Production refuses submissions if verification is missing or fails. The verified hostname must match `NEXT_PUBLIC_APP_URL`.
+- `TURNSTILE_SECRET_KEY`: the **private** secret belonging to existing Cloudflare Turnstile site key `0x4AAAAAAFVrQ-Iv92fvLjz1`. Store it as a Vercel **Production** environment variable, not in GitHub or chat. The public site key is pinned in `lib/turnstile-config.ts` and is shared across ARC, prayer, and registration. The server validates each returned hostname and form action.
 
-Development can omit both Turnstile keys; the server credential is still required after migration 004. Use Turnstile test credentials from Cloudflare's documentation for automated/local verification, never production. Restart development/redeploy production after changing environment values. Production previews need their own explicitly configured hostname/widget/environment; do not broaden the hostname check just to make previews submit into production data.
+Development can omit the Turnstile secret; the server credential is still required after migration 004. Use Turnstile test credentials from Cloudflare's documentation for automated/local verification, never production. Restart development/redeploy production after changing environment values. Production previews need their own explicitly configured hostname/widget/environment; do not broaden the hostname check just to make previews submit into production data.
 
 ## Apply and test
 
@@ -46,3 +46,29 @@ Trashed feedback/prayers are hidden from their working lists, but historical sub
 Members now show all assigned ministries, with ministry/status filters, result counts, Reset, and 50-row pagination. Navigation highlights the current section, uses subtle transitions, and respects reduced-motion preferences.
 
 Test the upgrade with fictional data: submit through an active QR on a weekday; deactivate it and confirm rejection; trash/restore each record type; confirm attendance and member ministries survive restore; confirm a non-Super-Admin cannot use Trash; filter a member assigned to multiple ministries and verify all their ministries remain displayed. Local database regression: `tests/trash.integration.sql` is for an empty disposable database only, never Supabase.
+
+
+## ARC or prayer form fails after Turnstile succeeds
+
+The browser's green verification does not mean the submission was saved. The server still validates the one-time challenge token, configured hostname, session rate limit, active Sunday Service QR token, and Supabase RPC.
+
+1. Check the message displayed under the form. An expired or already-used challenge can be retried after the widget refreshes. Do not reuse a previously verified token. If the form has been open for more than 24 hours, reload it.
+2. A **verification domain mismatch** means the verified Turnstile hostname differs from the hostname in `NEXT_PUBLIC_APP_URL`. In Vercel production settings, use the exact deployed HTTPS origin and configure its hostname in Cloudflare Turnstile. Preview URLs need separate authorized configuration.
+3. A **verification configuration** failure means production keys or `NEXT_PUBLIC_APP_URL` are missing/invalid, or Cloudflare rejected the secret. Check `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` as a matching pair. Never share or commit the secret.
+4. **Submissions temporarily unavailable** indicates a later server/database failure; review Vercel runtime logs and ensure `SUPABASE_SERVICE_ROLE_KEY` is configured and migrations 001 through 005 were applied exactly once. Avoid posting prayer content, QR tokens, or secrets in logs.
+5. **Active QR required** means the Sunday Service event and its QR must both be active, not trashed, and the QR must not be expired. A completed Turnstile challenge does not override those restrictions.
+
+The API returns a machine-readable `reason` only for human verification failures. It does not return the Turnstile token, secret, or raw Cloudflare response. Do not bypass bot protection to make submissions work.
+
+### Existing Cloudflare widget recovery (Spin)
+
+This app uses the existing widget. **Do not create a replacement widget.**
+Cloudflare's existing-widget flow: https://developers.cloudflare.com/turnstile/spin/
+
+- Public site key: `0x4AAAAAAFVrQ-Iv92fvLjz1` (stored in `lib/turnstile-config.ts`).
+- Production widget hostname: `jgchurch.vercel.app`; enable this hostname on the *same* widget in Cloudflare Turnstile dashboard.
+- Secret destination: Vercel project `jgchurch` → Settings → Environment Variables → **Production** → `TURNSTILE_SECRET_KEY`.
+- Server uses `NEXT_PUBLIC_APP_URL=https://jgchurch.vercel.app` to validate Siteverify hostname and requires matching `arc`, `prayer`, or `registration` action.
+- The private secret cannot be recovered from the public site key. Retrieve the **matching** secret privately through the Cloudflare dashboard and paste it directly into the Vercel secret field. Never include it in a file committed to GitHub, issue, PR, or chat. The documented automated recovery flow requires user-approved Wrangler 4.109+, an approved absolute path, exact account/sitekey/domains/destination manifest, and a platform secret manager that accepts stdin. When those capabilities are unavailable, use the platform's normal secret-management UI.
+- After adding/changing the secret, trigger a fresh production Vercel redeploy. A code push alone does not update the value already stored in Vercel.
+- Verify with a **fresh** real Turnstile token through each form and confirm the second submission with a reused token is rejected. If you cannot exercise the live backend, do not report end-to-end validation as complete.

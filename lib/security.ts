@@ -1,33 +1,67 @@
 import "server-only";
+import type { TurnstileAction } from "@/lib/turnstile-config";
 import { createHash, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  checkSiteverifyResult,
+  checkSubmissionTiming,
+  verificationFailure,
+  type HumanVerificationResult,
+} from "@/lib/human-verification";
 
-export async function verifyHuman(startedAt: number, honeypot: string, turnstileToken?: string) {
-  if (honeypot || Date.now() - startedAt < 2500 || Date.now() - startedAt > 86_400_000) return false;
+export async function verifyHumanDetailed(
+  startedAt: number,
+  honeypot: string,
+  turnstileToken: string | undefined,
+  action: TurnstileAction,
+): Promise<HumanVerificationResult> {
+  const timing = checkSubmissionTiming(startedAt, honeypot);
+  if (timing) return timing;
+
   const secret = process.env.TURNSTILE_SECRET_KEY;
   const production = process.env.NODE_ENV === "production";
-  if (!secret) {
-    if (production) throw new Error("Production bot protection is not configured");
-    return true;
+  if (!secret) return production ? verificationFailure("configuration") : { ok: true };
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (production && !appUrl) return verificationFailure("configuration");
+  if (!turnstileToken) return verificationFailure("challenge_missing");
+  if (turnstileToken.length > 2048) return verificationFailure("challenge_rejected");
+
+  // Never accept a challenge from a different hostname than our configured site.
+  let expectedHostname: string | null = null;
+  if (production) {
+    try {
+      expectedHostname = new URL(appUrl!).hostname;
+      if (!expectedHostname) return verificationFailure("configuration");
+    } catch {
+      return verificationFailure("configuration");
+    }
   }
-  if (production && (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || !process.env.NEXT_PUBLIC_APP_URL)) {
-    throw new Error("Production bot protection is not configured");
+
+  const body = new URLSearchParams({ secret, response: turnstileToken });
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return verificationFailure("verification_unavailable");
+    const result = await response.json() as {
+      success?: boolean;
+      hostname?: string;
+      action?: string;
+      "error-codes"?: string[];
+    };
+    return checkSiteverifyResult(result, expectedHostname, action);
+  } catch {
+    return verificationFailure("verification_unavailable");
   }
-  if (!turnstileToken) return false;
-  const body = new FormData();
-  body.set("secret", secret);
-  body.set("response", turnstileToken);
-  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST", body, cache: "no-store", signal: AbortSignal.timeout(10000),
-  });
-  if (!response.ok) return false;
-  const result = await response.json() as { success?: boolean; hostname?: string };
-  if (result.success !== true) return false;
-  if (production && result.hostname !== new URL(process.env.NEXT_PUBLIC_APP_URL!).hostname) return false;
-  return true;
 }
 
+// Retain the boolean API for callers that only need success/failure.
 export async function rateLimit(scope: "arc" | "prayer" | "registration") {
   const store = await cookies();
   let id = store.get("arc_session")?.value;

@@ -1,8 +1,9 @@
+import { TURNSTILE_ACTIONS } from "@/lib/turnstile-config";
 import { NextResponse } from "next/server";
 import { prayerRequestSchema } from "@/lib/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { submissionAccess } from "@/lib/submission-access";
-import { rateLimit, verifyHuman } from "@/lib/security";
+import { rateLimit, verifyHumanDetailed } from "@/lib/security";
 import { readSubmissionJson } from "@/lib/submission-body";
 
 export async function POST(request: Request) {
@@ -12,7 +13,8 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid prayer request" }, { status: 400 });
   const value = parsed.data;
   try {
-    if (!await verifyHuman(value.startedAt, value.website, value.turnstileToken)) return NextResponse.json({ error: "Please complete bot verification and wait a moment before submitting." }, { status: 400 });
+    const human = await verifyHumanDetailed(value.startedAt, value.website, value.turnstileToken, TURNSTILE_ACTIONS.prayer);
+    if (!human.ok) return NextResponse.json({ error: human.error, reason: human.reason }, { status: human.status });
     if (!await rateLimit("prayer")) return NextResponse.json({ error: "Too many submissions. Please try again later." }, { status: 429 });
     const denied = await submissionAccess(value.eventToken);
     if (denied) return NextResponse.json({ error: denied }, { status: 403 });
