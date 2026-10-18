@@ -46,3 +46,16 @@ Trashed feedback/prayers are hidden from their working lists, but historical sub
 Members now show all assigned ministries, with ministry/status filters, result counts, Reset, and 50-row pagination. Navigation highlights the current section, uses subtle transitions, and respects reduced-motion preferences.
 
 Test the upgrade with fictional data: submit through an active QR on a weekday; deactivate it and confirm rejection; trash/restore each record type; confirm attendance and member ministries survive restore; confirm a non-Super-Admin cannot use Trash; filter a member assigned to multiple ministries and verify all their ministries remain displayed. Local database regression: `tests/trash.integration.sql` is for an empty disposable database only, never Supabase.
+
+
+## ARC or prayer form fails after Turnstile succeeds
+
+The browser's green verification does not mean the submission was saved. The server still validates the one-time challenge token, configured hostname, session rate limit, active Sunday Service QR token, and Supabase RPC.
+
+1. Check the message displayed under the form. An expired or already-used challenge can be retried after the widget refreshes. Do not reuse a previously verified token. If the form has been open for more than 24 hours, reload it.
+2. A **verification domain mismatch** means the verified Turnstile hostname differs from the hostname in `NEXT_PUBLIC_APP_URL`. In Vercel production settings, use the exact deployed HTTPS origin and configure its hostname in Cloudflare Turnstile. Preview URLs need separate authorized configuration.
+3. A **verification configuration** failure means production keys or `NEXT_PUBLIC_APP_URL` are missing/invalid, or Cloudflare rejected the secret. Check `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` as a matching pair. Never share or commit the secret.
+4. **Submissions temporarily unavailable** indicates a later server/database failure; review Vercel runtime logs and ensure `SUPABASE_SERVICE_ROLE_KEY` is configured and migrations 001 through 005 were applied exactly once. Avoid posting prayer content, QR tokens, or secrets in logs.
+5. **Active QR required** means the Sunday Service event and its QR must both be active, not trashed, and the QR must not be expired. A completed Turnstile challenge does not override those restrictions.
+
+The API returns a machine-readable `reason` only for human verification failures. It does not return the Turnstile token, secret, or raw Cloudflare response. Do not bypass bot protection to make submissions work.
