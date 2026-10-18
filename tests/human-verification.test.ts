@@ -18,6 +18,15 @@ describe("human verification result handling", () => {
       .toMatchObject({ ok: false, reason: "hostname_mismatch" });
   });
 
+  it("requires the Turnstile action to match the protected form", () => {
+    expect(checkSiteverifyResult({ success: true, hostname: "jgchurch.vercel.app", action: "arc" }, "jgchurch.vercel.app", "arc"))
+      .toEqual({ ok: true });
+    expect(checkSiteverifyResult({ success: true, hostname: "jgchurch.vercel.app", action: "prayer" }, "jgchurch.vercel.app", "arc"))
+      .toMatchObject({ ok: false, reason: "challenge_rejected" });
+    expect(checkSiteverifyResult({ success: true, hostname: "jgchurch.vercel.app" }, "jgchurch.vercel.app", "registration"))
+      .toMatchObject({ ok: false, reason: "challenge_rejected" });
+  });
+
   it("explains expired single-use challenges without exposing tokens", () => {
     const expired = checkSiteverifyResult({ success: false, "error-codes": ["timeout-or-duplicate"] }, "church.example");
     expect(expired).toMatchObject({ ok: false, reason: "challenge_expired", status: 400 });
